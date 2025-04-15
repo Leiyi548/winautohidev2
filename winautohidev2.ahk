@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #include Array.ahk
 #include DPI.ahk
 ; 实现窗口平滑移动，越小越平滑，最小为-1
@@ -23,10 +23,15 @@ global suspendWindowList
 
 maxHeight := 800
 
+; 设置托盘图标
+TraySetIcon("./assest/自动贴边.png")
 ; 加入右键菜单
 myMenu := A_TrayMenu
-myMenu.Add()
-myMenu.Add("Reset all hidden windows", Reset)
+myMenu.Delete()
+myMenu.Add("重置所有贴边窗口", Reset)
+myMenu.SetIcon("重置所有贴边窗口", "imageres.dll", 230)
+myMenu.Add("退出", (*) => ExitApp())
+myMenu.SetIcon("退出", "imageres.dll", 231)
 
 
 Reset(*){
