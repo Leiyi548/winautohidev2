@@ -1,4 +1,4 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 #include Array.ahk
 #include DPI.ahk
 ; 实现窗口平滑移动，越小越平滑，最小为-1
@@ -118,7 +118,7 @@ WatchCursor(){
 
 
 
-^Left::{
+#!Left::{
 	results := getSide()
 	leftMonitor := results[1]
 	rightMonitor := results[2]
@@ -148,7 +148,7 @@ WatchCursor(){
 	hideWindow({id:ahkId,mode:"left"})
 }
 
-^Right::{
+#!Right::{
 	results := getSide()
 	leftMonitor := results[1]
 	rightMonitor := results[2]
@@ -180,7 +180,7 @@ WatchCursor(){
 	
 }
 
-^F4::{
+^!r::{
 	Reset()
 }
 
