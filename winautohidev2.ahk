@@ -6,7 +6,7 @@ SetWinDelay(5)
 
 ; 隐藏时留出的长度以及显示时距离屏幕边缘的长度
 ; 由于DPI关系，margin设置，不同DPI可能不同
-margin := 10
+margin := 5
 showMargin := 0
 global margin
 global showMargin
