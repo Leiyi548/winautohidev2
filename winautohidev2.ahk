@@ -112,6 +112,15 @@ WatchCursor() {
             hiddenWindowIndex := hiddenWindowList.Find((v) => (v.id = ahkId))
             ; 隐藏窗口则显示
             if hiddenWindowIndex > 0 {
+                ; 先隐藏所有已经显示的窗口
+                suspendLength := suspendWindowList.Length
+                loop suspendLength {
+                    suspendWindow := suspendWindowList.Get(suspendWindowList.Length)
+                    suspendWindowList.RemoveAt(suspendWindowList.Length)
+                    hideWindow(suspendWindow)
+                }
+                
+                ; 然后显示当前鼠标所在的窗口
                 window := hiddenWindowList.Get(hiddenWindowIndex)
                 showWindow(window)
             }
