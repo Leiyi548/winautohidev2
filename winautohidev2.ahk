@@ -119,7 +119,7 @@ WatchCursor() {
                     suspendWindowList.RemoveAt(suspendWindowList.Length)
                     hideWindow(suspendWindow)
                 }
-                
+
                 ; 然后显示当前鼠标所在的窗口
                 window := hiddenWindowList.Get(hiddenWindowIndex)
                 showWindow(window)
@@ -327,7 +327,6 @@ hideWindow(window) {
     }
 }
 
-
 ; 显示窗口函数
 ; 参数:
 ;   window - 包含窗口信息的对象，必须包含 id 和 mode 属性
@@ -457,4 +456,16 @@ getDPI(monitorIndex) {
     dpiValue := DPI.GetForMonitor(monitorHandles.Get(monitorIndex))
     dpiValue := dpiValue / 96
     return dpiValue
+}
+
+; 隐藏所有贴边窗口的快捷键 (Win+Alt+H)
+#!h:: {
+    ; 获取悬停窗口列表长度
+    suspendLength := suspendWindowList.Length
+    ; 隐藏所有悬停状态的窗口
+    loop suspendLength {
+        suspendWindow := suspendWindowList.Get(suspendWindowList.Length)
+        suspendWindowList.RemoveAt(suspendWindowList.Length)
+        hideWindow(suspendWindow)
+    }
 }
