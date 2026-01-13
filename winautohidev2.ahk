@@ -5,6 +5,7 @@
 
 WinEvent.Active(ActiveWindowChanged)
 Persistent()
+OnExit(ExitCleanup)
 showTmp:=1
 global showTmp
 ActiveWindowChanged(hWnd, *) {
@@ -22,7 +23,7 @@ SetWinDelay(0.5)
 
 ; 隐藏时留出的长度以及显示时距离屏幕边缘的长度
 ; 由于DPI关系，margin设置，不同DPI可能不同
-margin := 8
+margin := 35
 showMargin := 0
 global margin
 global showMargin
@@ -45,8 +46,41 @@ myMenu := A_TrayMenu
 myMenu.Delete()
 myMenu.Add("重置所有贴边窗口", Reset)
 myMenu.SetIcon("重置所有贴边窗口", "imageres.dll", 230)
+
 myMenu.Add("退出", (*) => ExitApp())
 myMenu.SetIcon("退出", "imageres.dll", 231)
+
+ExitCleanup(*) {
+	; 记录当前活跃窗口，以便最后恢复焦点
+	originalActive := WinActive("A")
+	
+	; 恢复所有隐藏和中间态的窗口
+	restoreList := []
+	Loop hiddenWindowList.Length {
+		restoreList.Push(hiddenWindowList.Get(A_Index))
+	}
+	Loop suspendWindowList.Length {
+		restoreList.Push(suspendWindowList.Get(A_Index))
+	}
+
+	for window in restoreList {
+		windowText := "ahk_id" window.id
+		if WinExist(windowText) {
+			WinSetAlwaysOnTop(0, windowText)    ; 取消置顶
+			WinSetTransparent("Off", windowText) ; 取消透明度
+			; 使用 PostMessage 发送最大化指令（SC_MAXIMIZE = 0xF030）
+			; 相比 WinMaximize，PostMessage 更有可能在后台完成操作而不强制夺取焦点
+			PostMessage(0x0112, 0xF030, 0, , windowText) 
+			; 立即将其推送到窗口堆栈的最底层
+			WinMoveBottom(windowText)
+		}
+	}
+	
+	; 如果之前的活跃窗口还在，确保它保持焦点
+	if originalActive && WinExist("ahk_id" originalActive) {
+		WinActivate("ahk_id" originalActive)
+	}
+}
 CoordMode "Mouse", "Screen"
 log(message) {
   OutputDebug message  ; 输出到调试控制台
@@ -94,6 +128,7 @@ Reset(*){
 		hiddenWindowList.RemoveAt(hiddenWindowList.Length)
 		WinMove(showMargin+leftEdge,showMargin+leftTopEdge,,,"ahk_id" window.id)
 		WinSetAlwaysOnTop(0,"ahk_id" window.id)
+		WinSetTransparent("Off", "ahk_id" window.id)
 	}
 	suspendLength := suspendWindowList.Length
 	Loop suspendLength {
@@ -146,11 +181,12 @@ WatchCursor(){
 		    }
 
 		    ; 隐藏窗口则显示
-		    if hiddenWindowIndex>0 {
-	    		window := hiddenWindowList.Get(hiddenWindowIndex)
-	    		WinSetAlwaysOnTop(1, "ahk_id " . window.id) ; 确保置顶
-	    		showWindow(window)
-		    }
+		if hiddenWindowIndex>0 {
+			window := hiddenWindowList.Get(hiddenWindowIndex)
+			WinSetAlwaysOnTop(1, "ahk_id " . window.id) ; 确保置顶
+			WinSetTransparent("Off", "ahk_id" window.id)
+			showWindow(window)
+		}
 		    else{
 		    	;按顺序隐藏
 				;ToolTip suspendWindowList.Length . "|". showTmp
@@ -269,11 +305,20 @@ hideWindow(window){
 		
 		winSmoothMove(NewX, NewY, windowText)
 		WinSetAlwaysOnTop(1, windowText)
+		WinSetTransparent(150, windowText)
 		pushTo(hiddenWindowList,window)
 	}
 }
 
 showWindow(window){
+	; 只显示最新的窗口，隐藏之前已滑出的中间态窗口
+	while suspendWindowList.Length > 0 {
+		oldWindow := suspendWindowList.RemoveAt(1)
+		if oldWindow.id != window.id {
+			hideWindow(oldWindow)
+		}
+	}
+
 	windowText := "ahk_id" window.id
 	mode := window.mode
 	DPI.WinGetPos(&X, &Y, &W, &H,windowText)
@@ -292,6 +337,7 @@ showWindow(window){
 		NewY := bottomEdge-Round(showMargin*bottomDPI)-Round(H*bottomDPI)+5
 	}
 	; WinMove(NewX, Y,,,window)
+	WinSetTransparent("Off", windowText)
 	winSmoothMove(NewX,NewY,windowText)
 	pushTo(suspendWindowList,window)
 }
