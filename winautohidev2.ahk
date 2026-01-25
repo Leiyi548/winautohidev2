@@ -10,10 +10,37 @@ showTmp:=1
 global showTmp
 ActiveWindowChanged(hWnd, *) {
 	global showTmp
+	
+	; 过滤掉无效句柄或系统托盘/任务栏等窗口
+	if !hWnd || !WinExist("ahk_id" hWnd)
+		return
+		
+	; 过滤掉任务切换窗口 (Alt+Tab), 开始菜单, 任务栏等
+	try {
+		class := WinGetClass("ahk_id" hWnd)
+		; log("ActiveWindowChanged: hWnd=" hWnd " Class=" class)
+		if (class ~= "i)^(MultitaskingViewFrame|Shell_TrayWnd|Shell_SecondaryTrayWnd|Windows\.Internal\.Shell\.Experience\.TextAreaContextView|Button|ComboLBox|TaskSwitcherWnd|WorkerW|Progman)$")
+			return
+	}
+
 	hiddenWindowIndex := hiddenWindowList.Find((v) => (v.id =hWnd))
-	; 隐藏窗口则显示
+	; 只有当鼠标真的在窗口位置附近，或者是有意激活时才显示
 	if hiddenWindowIndex>0 {
+		; 检查鼠标是否在屏幕边缘（如果是任务切换导致的激活，鼠标通常不在边缘）
+		MouseGetPos &mx, &my
 		window := hiddenWindowList.Get(hiddenWindowIndex)
+		
+		; 如果是通过键盘任务切换激活的，我们检查鼠标是否在触发区域
+		; 如果鼠标不在边缘区域，我们认为这是非主动触发，不予显示
+		; 这里的逻辑是：如果窗口被激活，但鼠标不在窗口范围内，则不显示
+		windowText := "ahk_id " . window.id
+		WinGetPos(&wx, &wy, &ww, &wh, windowText)
+		if !(mx >= wx && mx <= wx + ww && my >= wy && my <= wy + wh) {
+			; 虽然被激活了，但鼠标不在它上面，说明是任务切换导致的“虚假激活”
+			; 我们不做任何操作，让它继续保持隐藏状态
+			return
+		}
+
 		showWindow(window)
 		showTmp := 1
 	}
