@@ -113,48 +113,18 @@ log(message) {
   OutputDebug message  ; 输出到调试控制台
 }
 Reset(*){
-	results := getSide()
-	leftMonitor := results[1]
-	rightMonitor := results[2]
-	topMonitor := results[3]
-	bottomMonitor := results[4]
-	leftEdge := results[5]
-	rightEdge := results[6]
-	topEdge := results[7]
-	bottomEdge := results[8]
-	
-	MonitorGet leftMonitor,,&leftTopEdge
-	MonitorGet rightMonitor,,&rightTopEdge
-	MonitorGet topMonitor,&topMonitorLeft
-	MonitorGet bottomMonitor,&bottomMonitorLeft
-	
-	leftDPI := getDPI(leftMonitor)
-	rightDPI := getDPI(rightMonitor)
-	topDPI := getDPI(topMonitor)
-	bottomDPI := getDPI(bottomMonitor)
-	
-	; 多显示器支持
-	global leftEdge
-	global rightEdge
-	global topEdge
-	global bottomEdge
-	
-	global leftTopEdge
-	global rightTopEdge
-	global topMonitorLeft
-	global bottomMonitorLeft
-	
-	global leftDPI
-	global rightDPI
-	global topDPI
-	global bottomDPI
-
 	hiddenLength := hiddenWindowList.Length
 	Loop hiddenLength {
 		window := hiddenWindowList.Get(hiddenWindowList.Length)
 		hiddenWindowList.RemoveAt(hiddenWindowList.Length)
-		WinMove(showMargin+leftEdge,showMargin+leftTopEdge,,,"ahk_id" window.id)
-		WinSetAlwaysOnTop(0,"ahk_id" window.id)
+
+		; 使用隐藏时存储的显示器索引，或回退到窗口当前位置检测
+		monIndex := 0
+		try monIndex := window.monitorIndex
+		mon := GetMonitorInfoByIndex(monIndex || 1)
+
+		WinMove(showMargin+mon.left, showMargin+mon.top, , , "ahk_id" window.id)
+		WinSetAlwaysOnTop(0, "ahk_id" window.id)
 		WinSetTransparent("Off", "ahk_id" window.id)
 	}
 	suspendLength := suspendWindowList.Length
@@ -268,7 +238,6 @@ UpdateGlobals(){
 }
 
 HideActiveWindow(mode){
-	UpdateGlobals()
 	ahkId := WinGetID("A")
 	hiddenWindowIndex := hiddenWindowList.Find((v) => (v.id =ahkId))
 	suspendWindowIndex := suspendWindowList.Find((v) => (v.id =ahkId))
@@ -303,7 +272,7 @@ HideActiveWindow(mode){
 
 
 hideWindow(window){
-	
+
 	windowText := "ahk_id" window.id
 
 	;最大化窗口不可隐藏
@@ -311,25 +280,30 @@ hideWindow(window){
 		DPI.WinGetPos(&X, &Y, &W, &H,windowText)
 		; 乘以dpi 使用DPI缩放
 		mode := window.mode
+
+		; 获取当前窗口所在的显示器信息
+		mon := GetMonitorInfo(window.id)
+		window.monitorIndex := mon.index
+
 		NewX := X
 		NewY := Y
 		if mode="left"{
-			NewX := -Round(W*leftDPI)+leftEdge+Round(margin*leftDPI)
-			NewY :=Max(Y,leftTopEdge)
+			NewX := -Round(W*mon.dpi)+mon.left+Round(margin*mon.dpi)
+			NewY :=Max(Y,mon.top)
 		}
 		else if mode="right"{
-			NewX := rightEdge-Round(margin*rightDPI)
-			NewY :=Max(Y,rightTopEdge)
+			NewX := mon.right-Round(margin*mon.dpi)
+			NewY :=Max(Y,mon.top)
 		}
 		else if mode="top"{
-			NewY := -Round(H*topDPI)+topEdge+Round(margin*topDPI)
-			NewX := Max(X, topMonitorLeft)
+			NewY := -Round(H*mon.dpi)+mon.top+Round(margin*mon.dpi)
+			NewX := Max(X, mon.left)
 		}
 		else if mode="bottom"{
-			NewY := bottomEdge-Round(margin*bottomDPI)
-			NewX := Max(X, bottomMonitorLeft)
+			NewY := mon.bottom-Round(margin*mon.dpi)
+			NewX := Max(X, mon.left)
 		}
-		
+
 		winSmoothMove(NewX, NewY, windowText)
 		WinSetAlwaysOnTop(1, windowText)
 		WinSetTransparent(150, windowText)
@@ -349,19 +323,25 @@ showWindow(window){
 	windowText := "ahk_id" window.id
 	mode := window.mode
 	DPI.WinGetPos(&X, &Y, &W, &H,windowText)
+
+	; 使用隐藏时存储的显示器索引
+	monIndex := 0
+	try monIndex := window.monitorIndex
+	mon := GetMonitorInfoByIndex(monIndex || 1)
+
 	NewX := X
 	NewY := Y
 	if mode="left"{
-		NewX := showMargin+leftEdge
+		NewX := showMargin+mon.left
 	}
 	else if mode="right"{
-		NewX := rightEdge-Round(showMargin*rightDPI)-Round(W*rightDPI)+5
+		NewX := mon.right-Round(showMargin*mon.dpi)-Round(W*mon.dpi)+5
 	}
 	else if mode="top"{
-		NewY := topEdge+showMargin
+		NewY := mon.top+showMargin
 	}
 	else if mode="bottom"{
-		NewY := bottomEdge-Round(showMargin*bottomDPI)-Round(H*bottomDPI)+5
+		NewY := mon.bottom-Round(showMargin*mon.dpi)-Round(H*mon.dpi)+5
 	}
 	; WinMove(NewX, Y,,,window)
 	WinSetTransparent("Off", windowText)
@@ -372,9 +352,15 @@ isWindowMove(window){
 	windowText := "ahk_id" window.id
 	mode := window.mode
 	DPI.WinGetPos(&X, &Y, &W, &H,windowText)
+
+	; 使用隐藏时存储的显示器索引
+	monIndex := 0
+	try monIndex := window.monitorIndex
+	mon := GetMonitorInfoByIndex(monIndex || 1)
+
 	; 当窗口横坐标大于margin一定程度，认为移动
 	if mode = "left"{
-		if (X>Round(showMargin*leftDPI)+leftEdge+moveDistance){
+		if (X>Round(showMargin*mon.dpi)+mon.left+moveDistance){
 			return 1
 		}
 		else{
@@ -382,7 +368,7 @@ isWindowMove(window){
 		}
 	}
 	else if mode="right"{
-		if (X<rightEdge-moveDistance-Round(showMargin*rightDPI) - Round(W*rightDPI)){
+		if (X<mon.right-moveDistance-Round(showMargin*mon.dpi) - Round(W*mon.dpi)){
 			return 1
 		}
 		else{
@@ -390,7 +376,7 @@ isWindowMove(window){
 		}
 	}
 	else if mode="top"{
-		if (Y>Round(showMargin*topDPI)+topEdge+moveDistance){
+		if (Y>Round(showMargin*mon.dpi)+mon.top+moveDistance){
 			return 1
 		}
 		else{
@@ -398,14 +384,14 @@ isWindowMove(window){
 		}
 	}
 	else if mode="bottom"{
-		if (Y<bottomEdge-moveDistance-Round(showMargin*bottomDPI) - Round(H*bottomDPI)){
+		if (Y<mon.bottom-moveDistance-Round(showMargin*mon.dpi) - Round(H*mon.dpi)){
 			return 1
 		}
 		else{
 			return 0
 		}
 	}
-	
+
 }
 ; 列表不允许存在相同的窗口
 pushTo(array,value){
@@ -500,6 +486,41 @@ getDPI(monitorIndex){
 	dpiValue := DPI.GetForMonitor(monitorHandles.Get(monitorIndex))
 	dpiValue := dpiValue / 96
 	return dpiValue
+}
+
+; 获取窗口所在显示器的信息（基于窗口中心点）
+GetMonitorInfo(hWnd) {
+	WinGetPos(&wx, &wy, &ww, &wh, "ahk_id" hWnd)
+	centerX := wx + ww / 2
+	centerY := wy + wh / 2
+
+	monitorIndex := 0
+	Loop MonitorGetCount() {
+		MonitorGet(A_Index, &ml, &mt, &mr, &mb)
+		if (centerX >= ml && centerX < mr && centerY >= mt && centerY < mb) {
+			monitorIndex := A_Index
+			break
+		}
+	}
+
+	if (monitorIndex == 0)
+		monitorIndex := 1
+
+	MonitorGet(monitorIndex, &ml, &mt, &mr, &mb)
+	dpi := getDPI(monitorIndex)
+
+	return {index: monitorIndex, left: ml, top: mt, right: mr, bottom: mb, dpi: dpi}
+}
+
+; 根据显示器索引获取显示器信息
+GetMonitorInfoByIndex(monitorIndex) {
+	if !monitorIndex || monitorIndex < 1 || monitorIndex > MonitorGetCount()
+		monitorIndex := 1
+
+	MonitorGet(monitorIndex, &ml, &mt, &mr, &mb)
+	dpi := getDPI(monitorIndex)
+
+	return {index: monitorIndex, left: ml, top: mt, right: mr, bottom: mb, dpi: dpi}
 }
 
 #ErrorStdOut
