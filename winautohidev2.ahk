@@ -123,7 +123,11 @@ Reset(*){
 		try monIndex := window.monitorIndex
 		mon := GetMonitorInfoByIndex(monIndex || 1)
 
-		WinMove(showMargin+mon.left, showMargin+mon.top, , , "ahk_id" window.id)
+		; 获取窗口尺寸，计算居中位置
+		WinGetPos(, , &wW, &wH, "ahk_id" window.id)
+		centerX := mon.left + (mon.right - mon.left - wW) // 2
+		centerY := mon.top + (mon.bottom - mon.top - wH) // 2
+		WinMove(centerX, centerY, , , "ahk_id" window.id)
 		WinSetAlwaysOnTop(0, "ahk_id" window.id)
 		WinSetTransparent("Off", "ahk_id" window.id)
 	}
@@ -267,6 +271,10 @@ HideActiveWindow(mode){
 }
 
 ^+F4::{
+	Reset()
+}
+
+#!Backspace::{
 	Reset()
 }
 
